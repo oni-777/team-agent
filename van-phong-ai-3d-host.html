@@ -107,7 +107,7 @@ const hg=new THREE.Mesh(new THREE.IcosahedronGeometry(.5,1),hm);hg.position.y=1.
 let boost=0;
 
 // agents
-const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='';let sel=null,T=0;
+const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='',hold=false,starts=0;let sel=null,T=0;
 function build(a,i){
   const g=new THREE.Group();g.position.set(a.p[0],0,a.p[1]);g.rotation.y=Math.atan2(-a.p[0],-a.p[1]);scene.add(g);
   box(2.2,.12,1,0xc9a27a,0,1,1.3,g);
@@ -164,6 +164,7 @@ async function start(a,task){
 function finish(a){
   const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res,c:a.color,n:a.name});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
   if(a!==mgr)send(a,mgr,()=>say(mgr,'Đã nhận từ '+a.name,2000));upd();
+  if(hold&&!pending&&starts<=0&&AG.every(x=>x.state==='idle'))hold=false;
 }
 
 // selection / UI
@@ -185,8 +186,8 @@ function submit(){
   if(assign(target,t))inp.value='';
 }
 $('#go').onclick=submit;$('#in').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});
-let autoOn=false,nextAuto=3;
-$('#auto').onclick=()=>{autoOn=!autoOn;$('#auto').textContent='Tự động: '+(autoOn?'bật':'tắt')};
+let autoOn=false,nextAuto=3,autoN=0;
+$('#auto').onclick=()=>{autoOn=!autoOn;autoN=0;$('#auto').textContent='Tự động: '+(autoOn?'bật':'tắt')};
 function renderRes(){
   $('#rbtn').textContent='Kết quả ('+results.length+')';
   if(autoOpen){$('#res').classList.add('open');$('#fl').classList.remove('open');autoOpen=false}
@@ -219,9 +220,9 @@ async function callAI(name,role,task,mode){
   for(let i=0;i<3;i++){
     let t='';
     try{
-      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode})});
+      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode}),signal:AbortSignal.timeout(45000)});
       t=(await r.json()).text||'';
-    }catch(e){return 'Lỗi: '+String(e.message||e).slice(0,80)}
+    }catch(e){return 'Lỗi: '+(e&&e.name==='TimeoutError'?'quá thời gian chờ (45 giây)':String(e.message||e).slice(0,80))}
     if(!t.startsWith('Lỗi')||!/429/.test(t))return t;
     await sleep(4000);
   }
@@ -233,7 +234,7 @@ function localMerge(raw){const seen=new Set(),out=[];raw.forEach(r=>{const k=nor
 let pending=null;
 async function projectAsk(g){
   const ws=AG.slice(1),raw=[];
-  $('#pgo').disabled=true;log('Nhóm đang nghĩ câu hỏi làm rõ…');
+  hold=true;$('#pgo').disabled=true;log('Nhóm đang nghĩ câu hỏi làm rõ…');
   ws.forEach(a=>{a.state='busy'});
   for(const a of ws){
     say(a,'Đang nghĩ câu hỏi…',0);
@@ -262,9 +263,9 @@ function showQ(g,qs,n){
   $('#qbox').classList.add('open');log('Minh gửi bạn '+qs.length+' câu hỏi, mời trả lời');
 }
 function runProject(g,ctx){
-  if(AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
-  autoOpen=true;lastGoal=g;log('Dự án: '+g);
-  AG.forEach((a,i)=>setTimeout(()=>assign(a,PT[a.name]+g+(ctx?'\n'+ctx:''),g),i*1500));
+  if(AG.some(a=>a.state!=='idle')){hold=false;log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
+  hold=true;starts=AG.length;autoOpen=true;lastGoal=g;log('Dự án: '+g);
+  AG.forEach((a,i)=>setTimeout(()=>{assign(a,PT[a.name]+g+(ctx?'\n'+ctx:''),g);starts--},i*1500));
 }
 function project(){
   const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
@@ -282,7 +283,7 @@ $('#qgo').onclick=()=>{
   runProject(g,ctx);
 };
 $('#qskip').onclick=()=>{if(!pending)return;const g=pending.g;pending=null;$('#qbox').classList.remove('open');runProject(g,'')};
-$('#qcancel').onclick=()=>{pending=null;$('#qbox').classList.remove('open');log('Đã hủy dự án')};
+$('#qcancel').onclick=()=>{pending=null;hold=false;$('#qbox').classList.remove('open');log('Đã hủy dự án')};
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function md2html(s){
   const out=[];let ul=false;
@@ -414,7 +415,7 @@ async function drawImage(){
   let img='',err='';
   try{
     if(!WORKER_URL.startsWith('https://'))throw new Error('chưa có địa chỉ Worker');
-    const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'cfimg',role:a.role,task:p})});
+    const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'cfimg',role:a.role,task:p}),signal:AbortSignal.timeout(60000)});
     const d=await r.json();if(d.image)img='data:image/jpeg;base64,'+d.image;else err=d.text||'Lỗi';
   }catch(e){err='Lỗi: '+String(e.message||e).slice(0,80)}
   a.state='idle';a.task='';
@@ -471,9 +472,9 @@ function loop(){
     if(p.t>=1){scene.remove(p.s);packets.splice(i,1);p.cb&&p.cb()}
   }
   boost=Math.max(0,boost-dt*.8);hg.rotation.y+=dt*(.5+boost*3);hg.rotation.x+=dt*.3;hm.opacity=.45+boost*.5;hg.scale.setScalar(1+boost*.25);
-  if(autoOn&&T>nextAuto){
+  if(autoOn&&!hold&&T>nextAuto){
     nextAuto=T+4+Math.random()*3;const idle=workers.filter(w=>w.state==='idle');
-    if(idle.length){const a=idle[Math.floor(Math.random()*idle.length)];assign(a,a.tasks[Math.floor(Math.random()*a.tasks.length)])}
+    if(idle.length){const a=idle[Math.floor(Math.random()*idle.length)];assign(a,a.tasks[Math.floor(Math.random()*a.tasks.length)]);autoN++;if(autoN>=10){autoOn=false;$('#auto').textContent='Tự động: tắt';log('Tự động đã dừng sau 10 việc mẫu')}}
   }
   setCam();ren.render(scene,cam);
 }
