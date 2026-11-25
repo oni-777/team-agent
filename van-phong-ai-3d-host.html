@@ -22,7 +22,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #panel{position:absolute;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(440px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;backdrop-filter:blur(8px)}
 #card h2{margin:0;font-size:16px}
 #card .st{font-size:12.5px;color:var(--mute);margin:3px 0 0}
-#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn,#fbtn,#stopbtn{pointer-events:auto;margin-top:8px}
+#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn,#fbtn,#stopbtn,#nbtn{pointer-events:auto;margin-top:8px}
 #in,#goal,#ip{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
 .btn{background:var(--acc);color:#0d1f1c;border:0;border-radius:9px;padding:9px 13px;font:700 13px "Be Vietnam Pro",system-ui,sans-serif;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
@@ -47,26 +47,28 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #fview input,#fview select{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif;min-width:0}
 #fview select option{color:#000}#fview input[type=range]{width:110px;padding:0}
 .fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.fr label{font-size:12px;color:var(--mute)}
-#qbox{position:fixed;inset:0;background:rgba(5,5,15,.6);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}#qbox.open{display:flex}
-#qcard{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(560px,100%);max-height:86vh;overflow:auto;touch-action:pan-y}
-#qcard h3{margin:0 0 4px}.qq{margin:12px 0 4px;font-weight:600;font-size:14px}
+#qbox,#nbox{position:fixed;inset:0;background:rgba(5,5,15,.6);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}#qbox.open,#nbox.open{display:flex}
+#qcard,#ncard{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(560px,100%);max-height:86vh;overflow:auto;touch-action:pan-y}
+#qcard h3,#ncard h3{margin:0 0 4px}#ncard label{display:block;font-size:12px;color:var(--mute);margin:6px 0}.ni{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:6px}.qq{margin:12px 0 4px;font-weight:600;font-size:14px}
 #qcard textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif}
-#askrow,#chkrow{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
+#askrow,#chkrow,#clrchk2{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
 </style>
 </head>
 <body>
-<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button> <button class="chip" id="fbtn">Tệp (0)</button> <button class="chip" id="stopbtn">Dừng tất cả</button></div>
+<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button> <button class="chip" id="fbtn">Tệp (0)</button> <button class="chip" id="stopbtn">Dừng tất cả</button> <button class="chip" id="nbtn">Sổ tay (0)</button></div>
 <div id="panel">
   <div id="card"></div>
   <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
   <div id="row2"><input id="goal" placeholder="Dự án lớn, ví dụ: video hướng dẫn mạch đèn giao thông Arduino" maxlength="300"><button class="btn" id="pgo">Chạy dự án</button></div>
   <label id="askrow"><input type="checkbox" id="askchk" checked> Nhóm hỏi làm rõ trước khi làm (khuyên dùng)</label>
   <label id="chkrow"><input type="checkbox" id="chkx" checked> Kiểm tra chéo: agent này sửa lỗi cho agent kia sau khi làm xong (khuyên dùng)</label>
+  <label id="clrchk2" class="askl"><input type="checkbox" id="clrchk" checked> Dọn kết quả phiên cũ khi bắt đầu dự án mới (chỉ giữ tóm tắt trong sổ tay)</label>
   <div id="row3"><input id="ip" placeholder="Mô tả ảnh cần vẽ, ví dụ: logo kênh lofi, mèo và đèn đêm" maxlength="200"><button class="btn" id="pdraw">Vẽ ảnh</button></div>
   <div id="log"></div>
 </div>
 <div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rchk">Kiểm tra chéo</button> <button class="btn ghost" id="rrep">Báo cáo</button> <button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
 <div id="qbox"><div id="qcard"><h3>Câu hỏi từ nhóm</h3><p class="rt" id="qsub"></p><div id="qlist"></div><div class="fr"><button class="btn" id="qgo">Gửi trả lời và bắt đầu làm</button><button class="btn ghost" id="qskip">Bỏ qua, cứ làm</button><button class="btn ghost" id="qcancel">Hủy dự án</button></div></div></div>
+<div id="nbox"><div id="ncard"><h3>Sổ tay của Minh</h3><p class="rt">Sau mỗi dự án, Minh ghi một tóm tắt ngắn để nhóm nhớ việc cũ. Chỉ giữ 5 ghi chú mới nhất, cũ hơn tự bị xóa để đỡ tốn lượt gọi AI. Sổ tay chỉ nằm trên trình duyệt của bạn.</p><div id="nlist"></div><div class="fr"><button class="btn ghost" id="nclear">Xóa hết sổ tay</button><button class="btn" id="nclose">Đóng</button></div></div></div>
 <div id="fl"><div id="fhead"><b>Tệp</b><span><button class="btn" id="fadd">Thêm tệp</button> <button class="btn ghost" id="fclose">Đóng</button></span></div><input type="file" id="finp" multiple hidden accept="image/*,.txt,.md,.csv,.json,.html,.htm,.js,.css,.py,.ino,.c,.cpp,.h,.xml,.yml,.yaml,.log"><div id="flist"></div><div id="fview"><p class="rt">Bấm Thêm tệp hoặc kéo thả ảnh và tệp văn bản vào trang. Tệp chỉ nằm trên trình duyệt, nhớ bấm Tải về để giữ lại.</p></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -108,7 +110,7 @@ const hg=new THREE.Mesh(new THREE.IcosahedronGeometry(.5,1),hm);hg.position.y=1.
 let boost=0;
 
 // agents
-const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='',hold=false,starts=0,proj={active:false,start:0,chk:true};let sel=null,T=0;
+const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='',hold=false,starts=0,proj={active:false,start:0,chk:true},exported=true;let sel=null,T=0;
 function build(a,i){
   const g=new THREE.Group();g.position.set(a.p[0],0,a.p[1]);g.rotation.y=Math.atan2(-a.p[0],-a.p[1]);scene.add(g);
   box(2.2,.12,1,0xc9a27a,0,1,1.3,g);
@@ -189,7 +191,7 @@ function submit(){
 $('#go').onclick=submit;$('#in').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});
 let autoOn=false,nextAuto=3,autoN=0;
 $('#auto').onclick=()=>{autoOn=!autoOn;autoN=0;$('#auto').textContent='Tự động: '+(autoOn?'bật':'tắt')};
-function renderRes(){
+function renderRes(){exported=false;
   $('#rbtn').textContent='Kết quả ('+results.length+')';
   if(autoOpen){$('#res').classList.add('open');$('#fl').classList.remove('open');autoOpen=false}
   const box=$('#rlist');box.textContent='';
@@ -209,7 +211,7 @@ function renderRes(){
 }
 $('#rbtn').onclick=()=>{$('#fl').classList.remove('open');$('#res').classList.toggle('open')};
 $('#rclose').onclick=()=>$('#res').classList.remove('open');
-$('#rdl').onclick=()=>{
+$('#rdl').onclick=()=>{exported=true;
   if(!results.length)return;
   const md='# Báo cáo văn phòng AI\n\n'+results.filter(r=>r.x).map(r=>'## '+r.a+'\n**Việc:** '+r.t+'\n\n'+r.x).join('\n\n---\n\n');
   const u=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.md';a.click();URL.revokeObjectURL(u);
@@ -268,11 +270,16 @@ function showQ(g,qs,n){
 function runProject(g,ctx){
   if(AG.some(a=>a.state!=='idle')){hold=false;log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
   hold=true;starts=AG.length;autoOpen=true;lastGoal=g;proj={active:true,start:results.length,chk:$('#chkx').checked};log('Dự án: '+g);
-  AG.forEach((a,i)=>timers.push(setTimeout(()=>{assign(a,PT[a.name]+g+(ctx?'\n'+ctx:''),g);starts--},i*1500)));
+  const full=[ctx,noteCtx(g)].filter(Boolean).join('\n');
+  AG.forEach((a,i)=>timers.push(setTimeout(()=>{assign(a,PT[a.name]+g+(full?'\n'+full:''),g);starts--},i*1500)));
 }
 function project(){
   const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
   if(AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
+  if($('#clrchk').checked&&results.length){
+    if(!exported&&!confirm('Kết quả phiên trước chưa được tải về và sẽ bị xóa. Tiếp tục dự án mới?'))return;
+    results.length=0;renderRes();exported=true;
+  }
   $('#goal').value='';
   if($('#askchk').checked&&WORKER_URL.startsWith('https://'))projectAsk(g);else runProject(g,'');
 }
@@ -301,6 +308,8 @@ async function onProjectDone(){
   const id=runId,from=proj.start;
   if(proj.chk&&WORKER_URL.startsWith('https://')){log('Bắt đầu kiểm tra chéo…');await crossCheck(from,id)}
   if(id!==runId)return;
+  if(WORKER_URL.startsWith('https://'))await makeNote(from,id);
+  if(id!==runId)return;
   hold=false;endSession(from);
 }
 function endSession(from){
@@ -309,6 +318,47 @@ function endSession(from){
   log('Phiên làm việc đã kết thúc: '+n+' kết quả. Mở Kết quả > Báo cáo để xem.');
   $('#fl').classList.remove('open');$('#res').classList.add('open');
 }
+const NK='vpai_notes';let notes=[];
+try{notes=JSON.parse(localStorage.getItem(NK)||'[]')}catch(e){notes=[]}
+if(!Array.isArray(notes))notes=[];
+function saveNotes(){try{localStorage.setItem(NK,JSON.stringify(notes))}catch(e){}$('#nbtn').textContent='Sổ tay ('+notes.length+')'}
+const tok=s=>new Set(normQ(s).split(' ').filter(w=>w.length>=4));
+function pickNotes(goal){const g=tok(goal);return notes.filter(n=>n.use||[...tok(n.t+' '+n.s)].filter(w=>g.has(w)).length>=2).slice(-2)}
+function noteCtx(goal){
+  const p=pickNotes(goal);if(!p.length)return '';
+  log('Đính kèm sổ tay: '+p.map(n=>n.t.slice(0,30)).join(', '));
+  return 'Ghi chú từ các phiên trước: '+p.map(n=>n.t+' => '+n.s.slice(0,350)).join(' | ');
+}
+async function makeNote(from,id){
+  const rs=results.slice(from).filter(r=>r.x&&!r.rev);
+  if(!rs.length)return;
+  say(mgr,'Đang ghi sổ tay…',0);
+  const src=rs.map(r=>r.n+': '+r.x.replace(/\s+/g,' ').slice(0,260)).join('\n');
+  let s=await callAI(mgr.name,mgr.role,'Dự án: '+lastGoal+'\nKết quả các agent:\n'+src,'note');
+  if(id!==runId)return;
+  say(mgr,'',0);
+  if(s.startsWith('Lỗi')||s.length<20)s=rs.map(r=>r.n+': '+r.x.replace(/\s+/g,' ').slice(0,70)).join(' | ');
+  s=s.replace(/\s+/g,' ').trim().slice(0,450);
+  notes.push({t:lastGoal.slice(0,80),s,d:new Date().toLocaleDateString('vi-VN'),use:false});
+  const drop=Math.max(0,notes.length-5);if(drop)notes.splice(0,drop);
+  saveNotes();log('Minh đã ghi sổ tay'+(drop?' và xóa '+drop+' ghi chú cũ nhất':''));
+}
+function showNotes(){
+  const box=$('#nlist');box.textContent='';
+  if(!notes.length)box.appendChild(mk('p','Sổ tay đang trống. Sau mỗi dự án, Minh sẽ ghi tóm tắt ngắn vào đây.','rt'));
+  notes.forEach((n,i)=>{
+    const d=mk('div','','ni');d.appendChild(mk('p',n.t+' ('+n.d+')','qq'));d.appendChild(mk('p',n.s,'rt'));
+    const l=mk('label'),c=mk('input');c.type='checkbox';c.checked=!!n.use;c.onchange=()=>{n.use=c.checked;saveNotes()};
+    l.append(c,' Luôn đính kèm vào dự án tiếp theo');
+    const b=mk('button','Xóa','btn ghost');b.onclick=()=>{notes.splice(i,1);saveNotes();showNotes()};
+    d.append(l,b);box.appendChild(d);
+  });
+  $('#nbox').classList.add('open');
+}
+$('#nbtn').onclick=showNotes;
+$('#nclose').onclick=()=>$('#nbox').classList.remove('open');
+$('#nclear').onclick=()=>{notes=[];saveNotes();showNotes()};
+saveNotes();
 function stopAll(){
   runId++;proj.active=false;ctl.abort();ctl=new AbortController();
   timers.splice(0).forEach(clearTimeout);
@@ -450,7 +500,7 @@ $('#fadd').onclick=()=>$('#finp').click();
 $('#finp').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 addEventListener('dragover',e=>e.preventDefault());
 addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
-$('#rrep').onclick=()=>{
+$('#rrep').onclick=()=>{exported=true;
   if(!results.length){log('Chưa có kết quả để làm báo cáo');return}
   const u=URL.createObjectURL(new Blob([buildReport()],{type:'text/html'}));
   if(!window.open(u,'_blank')){const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.html';a.click()}
