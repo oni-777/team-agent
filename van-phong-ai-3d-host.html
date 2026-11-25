@@ -47,6 +47,11 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #fview input,#fview select{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif;min-width:0}
 #fview select option{color:#000}#fview input[type=range]{width:110px;padding:0}
 .fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.fr label{font-size:12px;color:var(--mute)}
+#qbox{position:fixed;inset:0;background:rgba(5,5,15,.6);display:none;align-items:center;justify-content:center;z-index:9;padding:16px}#qbox.open{display:flex}
+#qcard{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(560px,100%);max-height:86vh;overflow:auto;touch-action:pan-y}
+#qcard h3{margin:0 0 4px}.qq{margin:12px 0 4px;font-weight:600;font-size:14px}
+#qcard textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif}
+#askrow{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
 </style>
 </head>
 <body>
@@ -55,10 +60,12 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div id="card"></div>
   <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
   <div id="row2"><input id="goal" placeholder="Dự án lớn, ví dụ: video hướng dẫn mạch đèn giao thông Arduino" maxlength="300"><button class="btn" id="pgo">Chạy dự án</button></div>
+  <label id="askrow"><input type="checkbox" id="askchk" checked> Nhóm hỏi làm rõ trước khi làm (khuyên dùng)</label>
   <div id="row3"><input id="ip" placeholder="Mô tả ảnh cần vẽ, ví dụ: logo kênh lofi, mèo và đèn đêm" maxlength="200"><button class="btn" id="pdraw">Vẽ ảnh</button></div>
   <div id="log"></div>
 </div>
 <div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rrep">Báo cáo</button> <button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
+<div id="qbox"><div id="qcard"><h3>Câu hỏi từ nhóm</h3><p class="rt" id="qsub"></p><div id="qlist"></div><div class="fr"><button class="btn" id="qgo">Gửi trả lời và bắt đầu làm</button><button class="btn ghost" id="qskip">Bỏ qua, cứ làm</button><button class="btn ghost" id="qcancel">Hủy dự án</button></div></div></div>
 <div id="fl"><div id="fhead"><b>Tệp</b><span><button class="btn" id="fadd">Thêm tệp</button> <button class="btn ghost" id="fclose">Đóng</button></span></div><input type="file" id="finp" multiple hidden accept="image/*,.txt,.md,.csv,.json,.html,.htm,.js,.css,.py,.ino,.c,.cpp,.h,.xml,.yml,.yaml,.log"><div id="flist"></div><div id="fview"><p class="rt">Bấm Thêm tệp hoặc kéo thả ảnh và tệp văn bản vào trang. Tệp chỉ nằm trên trình duyệt, nhớ bấm Tải về để giữ lại.</p></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -149,8 +156,7 @@ async function start(a,task){
   let ok=false;
   try{
     if(PROV[a.name]&&WORKER_URL.startsWith('https://')){
-      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:PROV[a.name],role:a.role,task})});
-      a.result=(await r.json()).text||'';ok=!!a.result;
+      a.result=await callAI(a.name,a.role,task);ok=!!a.result;
     }
   }catch(e){}
   a.until=ok?0:T+5+Math.random()*4;
@@ -207,12 +213,76 @@ $('#rdl').onclick=()=>{
   const u=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.md';a.click();URL.revokeObjectURL(u);
 };
 const PT={Minh:'Lập kế hoạch từng bước, có thứ tự và thời gian dự kiến, cho dự án: ',Code:'Đề xuất phần kỹ thuật cho dự án, kèm ví dụ code ngắn và giải thích từng bước. Dự án: ',Tìm:'Nghiên cứu và tổng hợp những thông tin cần biết (ý chính, ví dụ, lỗi hay gặp) cho dự án: ',Họa:'Đề xuất hướng thiết kế và hình ảnh (bảng màu, bố cục, ý tưởng) cho dự án: ',Bút:'Viết nội dung chính (kịch bản hoặc bài viết ngắn) cho dự án: '};
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+async function callAI(name,role,task,mode){
+  const pv=PROV[name];
+  for(let i=0;i<3;i++){
+    let t='';
+    try{
+      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode})});
+      t=(await r.json()).text||'';
+    }catch(e){return 'Lỗi: '+String(e.message||e).slice(0,80)}
+    if(!t.startsWith('Lỗi')||!/429/.test(t))return t;
+    await sleep(4000);
+  }
+  return 'Lỗi 429: quá nhiều yêu cầu, thử lại sau';
+}
+function parseQs(t,n){const l=t.split('\n').map(s=>s.replace(/^[-*•\d.)\s]+/,'').replace(/^\[[^\]]+\]\s*/,'').trim()).filter(s=>s.length>5&&s.length<200&&!/^không có/i.test(s)),q=l.filter(s=>s.includes('?'));return (q.length?q:l).slice(0,n)}
+const normQ=s=>s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,'').replace(/\s+/g,' ').trim();
+function localMerge(raw){const seen=new Set(),out=[];raw.forEach(r=>{const k=normQ(r.q).slice(0,35);if(k&&!seen.has(k)){seen.add(k);out.push(r.q)}});return out.slice(0,6)}
+let pending=null;
+async function projectAsk(g){
+  const ws=AG.slice(1),raw=[];
+  $('#pgo').disabled=true;log('Nhóm đang nghĩ câu hỏi làm rõ…');
+  ws.forEach(a=>{a.state='busy'});
+  for(const a of ws){
+    say(a,'Đang nghĩ câu hỏi…',0);
+    const t=await callAI(a.name,a.role,'Dự án: '+g+'\nPhần việc của bạn: '+a.role,'ask');
+    say(a,'',0);
+    if(t.startsWith('Lỗi'))log(a.name+' chưa hỏi được: '+t.slice(0,60));
+    else parseQs(t,2).forEach(q=>raw.push({from:a.name,q}));
+    a.state='idle';await sleep(700);
+  }
+  let qs=[];
+  if(raw.length){
+    say(mgr,'Đang tổng hợp câu hỏi…',0);
+    const t=await callAI(mgr.name,mgr.role,'Dự án: '+g+'\nCác câu hỏi của nhóm:\n'+raw.map(r=>'- ['+r.from+'] '+r.q).join('\n'),'sum');
+    if(!t.startsWith('Lỗi'))qs=parseQs(t,6);
+    if(!qs.length){qs=localMerge(raw);log('Minh chưa tổng hợp được, dùng cách gộp đơn giản')}
+    say(mgr,'',0);
+  }
+  $('#pgo').disabled=false;
+  if(!qs.length){log('Nhóm không có câu hỏi, bắt đầu làm');runProject(g,'');return}
+  showQ(g,qs,raw.length);
+}
+function showQ(g,qs,n){
+  pending={g};const box=$('#qlist');box.textContent='';
+  $('#qsub').textContent='Dự án: '+g+'. Nhóm gửi '+n+' câu hỏi, Minh gộp còn '+qs.length+'. Trả lời càng rõ thì kết quả càng ít sai, để trống nếu không cần.';
+  qs.forEach((q,i)=>{const d=mk('div');d.appendChild(mk('p','Câu '+(i+1)+': '+q,'qq'));const ta=mk('textarea');ta.rows=2;ta.maxLength=300;ta.placeholder='Trả lời của bạn (có thể để trống)';ta.dataset.q=q;d.appendChild(ta);box.appendChild(d)});
+  $('#qbox').classList.add('open');log('Minh gửi bạn '+qs.length+' câu hỏi, mời trả lời');
+}
+function runProject(g,ctx){
+  if(AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
+  autoOpen=true;lastGoal=g;log('Dự án: '+g);
+  AG.forEach((a,i)=>setTimeout(()=>assign(a,PT[a.name]+g+(ctx?'\n'+ctx:''),g),i*1500));
+}
 function project(){
   const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
   if(AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
-  $('#goal').value='';autoOpen=true;lastGoal=g;log('Dự án: '+g);
-  AG.forEach(a=>assign(a,PT[a.name]+g,g));
+  $('#goal').value='';
+  if($('#askchk').checked&&WORKER_URL.startsWith('https://'))projectAsk(g);else runProject(g,'');
 }
+$('#qgo').onclick=()=>{
+  if(!pending)return;const g=pending.g,pairs=[];
+  $('#qlist').querySelectorAll('textarea').forEach(t=>{const a=t.value.trim();if(a)pairs.push({q:t.dataset.q,a})});
+  $('#qbox').classList.remove('open');pending=null;
+  let ctx=pairs.length?'Thông tin bổ sung từ chủ dự án: '+pairs.map(p=>p.q+' => '+p.a).join(' | '):'';
+  if(ctx.length>800){ctx=ctx.slice(0,800);log('Câu trả lời dài, chỉ gửi khoảng 800 ký tự đầu cho nhóm')}
+  if(pairs.length){results.push({a:'Minh · Hỏi đáp trước khi làm',t:g,x:pairs.map(p=>'**'+p.q+'**\n'+p.a).join('\n\n'),c:mgr.color,n:'Minh'});renderRes()}
+  runProject(g,ctx);
+};
+$('#qskip').onclick=()=>{if(!pending)return;const g=pending.g;pending=null;$('#qbox').classList.remove('open');runProject(g,'')};
+$('#qcancel').onclick=()=>{pending=null;$('#qbox').classList.remove('open');log('Đã hủy dự án')};
 const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 function md2html(s){
   const out=[];let ul=false;
