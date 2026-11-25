@@ -261,10 +261,27 @@ async function projectAsk(g){
   if(!qs.length){log('Nhóm không có câu hỏi, bắt đầu làm');runProject(g,'');return}
   showQ(g,qs,raw.length);
 }
+function attachTo(ta,list){
+  [...list].forEach(f=>{
+    if(f.size>2e6){log('Tệp quá lớn (trên 2 MB): '+f.name);return}
+    const img=/^image\//.test(f.type);
+    if(!img&&!(TXT.test(f.name)||/^text\//.test(f.type))){log('Chưa hỗ trợ định dạng: '+f.name);return}
+    addFiles([f],true);
+    if(img){ta.value=(ta.value+'\n[Ảnh '+f.name+': nhóm chưa xem được nội dung ảnh, hãy mô tả bằng chữ]').trim();return}
+    const rd=new FileReader();
+    rd.onload=()=>{const s=String(rd.result).replace(/\s+/g,' ').trim();ta.value=(ta.value+'\n[Tệp '+f.name+'] '+s.slice(0,220)+(s.length>220?'… (rút gọn từ '+s.length+' ký tự)':'')).trim()};
+    rd.readAsText(f);
+  });
+}
 function showQ(g,qs,n){
   pending={g};const box=$('#qlist');box.textContent='';
   $('#qsub').textContent='Dự án: '+g+'. Nhóm gửi '+n+' câu hỏi, Minh gộp còn '+qs.length+'. Trả lời càng rõ thì kết quả càng ít sai, để trống nếu không cần.';
-  qs.forEach((q,i)=>{const d=mk('div');d.appendChild(mk('p','Câu '+(i+1)+': '+q,'qq'));const ta=mk('textarea');ta.rows=2;ta.maxLength=300;ta.placeholder='Trả lời của bạn (có thể để trống)';ta.dataset.q=q;d.appendChild(ta);box.appendChild(d)});
+  qs.forEach((q,i)=>{const d=mk('div');d.appendChild(mk('p','Câu '+(i+1)+': '+q,'qq'));const ta=mk('textarea');ta.rows=2;ta.maxLength=300;ta.placeholder='Trả lời của bạn (có thể để trống), hoặc kéo thả tệp văn bản vào đây';ta.dataset.q=q;d.appendChild(ta);
+    const att=mk('div','','fr'),ab=mk('button','Đính kèm tệp','btn ghost'),fi=mk('input');
+    fi.type='file';fi.hidden=true;fi.multiple=true;fi.accept='image/*,.txt,.md,.csv,.json,.html,.htm,.js,.css,.py,.ino,.c,.cpp,.h,.xml,.yml,.yaml,.log';
+    ab.onclick=()=>fi.click();fi.onchange=()=>{attachTo(ta,fi.files);fi.value=''};
+    ['dragover','drop'].forEach(ev=>ta.addEventListener(ev,e=>{e.preventDefault();e.stopPropagation();if(ev==='drop')attachTo(ta,e.dataTransfer.files)}));
+    att.append(ab,fi);d.appendChild(att);box.appendChild(d)});
   $('#qbox').classList.add('open');log('Minh gửi bạn '+qs.length+' câu hỏi, mời trả lời');
 }
 function runProject(g,ctx){
@@ -404,7 +421,7 @@ const files=[];let curF=-1;
 const TXT=/\.(txt|md|csv|json|html?|js|css|py|ino|c|cpp|h|xml|ya?ml|log)$/i;
 function mk(tag,txt,cls){const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e}
 function dl(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click()}
-function addFiles(list){
+function addFiles(list,quiet){
   let n=0;
   [...list].forEach(f=>{
     if(f.size>8e6){log('Tệp quá lớn (trên 8 MB): '+f.name);return}
@@ -414,7 +431,7 @@ function addFiles(list){
     rd.onload=()=>{files.push({n:f.name,k:img?'img':'txt',d:rd.result});openF(files.length-1);renderFiles()};
     if(img)rd.readAsDataURL(f);else rd.readAsText(f);
   });
-  if(n){$('#res').classList.remove('open');$('#fl').classList.add('open')}
+  if(n&&!quiet){$('#res').classList.remove('open');$('#fl').classList.add('open')}
 }
 function renderFiles(){
   $('#fbtn').textContent='Tệp ('+files.length+')';
@@ -499,7 +516,7 @@ $('#fclose').onclick=()=>$('#fl').classList.remove('open');
 $('#fadd').onclick=()=>$('#finp').click();
 $('#finp').onchange=e=>{addFiles(e.target.files);e.target.value=''};
 addEventListener('dragover',e=>e.preventDefault());
-addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
+addEventListener('drop',e=>{e.preventDefault();if($('#qbox').classList.contains('open')||$('#nbox').classList.contains('open')){log('Hãy thả tệp vào ô trả lời của từng câu hỏi');return}if(e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
 $('#rrep').onclick=()=>{exported=true;
   if(!results.length){log('Chưa có kết quả để làm báo cáo');return}
   const u=URL.createObjectURL(new Blob([buildReport()],{type:'text/html'}));
