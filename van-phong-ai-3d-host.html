@@ -141,13 +141,13 @@ async function start(a,task){
   try{
     if(PROV[a.name]&&WORKER_URL.startsWith('https://')){
       const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:PROV[a.name],role:a.role,task})});
-      a.result=(await r.json()).text||'';ok=!!a.result&&a.result!=='Lỗi';
+      a.result=(await r.json()).text||'';ok=!!a.result;
     }
   }catch(e){}
   a.until=ok?0:T+5+Math.random()*4;
 }
 function finish(a){
-  const res=a.result;a.result='';if(res){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
+  const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
   if(a!==mgr)send(a,mgr,()=>say(mgr,'Đã nhận từ '+a.name,2000));upd();
 }
 
