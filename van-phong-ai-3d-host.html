@@ -22,7 +22,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #panel{position:absolute;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(440px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;backdrop-filter:blur(8px)}
 #card h2{margin:0;font-size:16px}
 #card .st{font-size:12.5px;color:var(--mute);margin:3px 0 0}
-#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn,#fbtn{pointer-events:auto;margin-top:8px}
+#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn,#fbtn,#stopbtn{pointer-events:auto;margin-top:8px}
 #in,#goal,#ip{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
 .btn{background:var(--acc);color:#0d1f1c;border:0;border-radius:9px;padding:9px 13px;font:700 13px "Be Vietnam Pro",system-ui,sans-serif;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
@@ -51,20 +51,21 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #qcard{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(560px,100%);max-height:86vh;overflow:auto;touch-action:pan-y}
 #qcard h3{margin:0 0 4px}.qq{margin:12px 0 4px;font-weight:600;font-size:14px}
 #qcard textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif}
-#askrow{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
+#askrow,#chkrow{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
 </style>
 </head>
 <body>
-<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button> <button class="chip" id="fbtn">Tệp (0)</button></div>
+<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button> <button class="chip" id="fbtn">Tệp (0)</button> <button class="chip" id="stopbtn">Dừng tất cả</button></div>
 <div id="panel">
   <div id="card"></div>
   <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
   <div id="row2"><input id="goal" placeholder="Dự án lớn, ví dụ: video hướng dẫn mạch đèn giao thông Arduino" maxlength="300"><button class="btn" id="pgo">Chạy dự án</button></div>
   <label id="askrow"><input type="checkbox" id="askchk" checked> Nhóm hỏi làm rõ trước khi làm (khuyên dùng)</label>
+  <label id="chkrow"><input type="checkbox" id="chkx" checked> Kiểm tra chéo: agent này sửa lỗi cho agent kia sau khi làm xong (khuyên dùng)</label>
   <div id="row3"><input id="ip" placeholder="Mô tả ảnh cần vẽ, ví dụ: logo kênh lofi, mèo và đèn đêm" maxlength="200"><button class="btn" id="pdraw">Vẽ ảnh</button></div>
   <div id="log"></div>
 </div>
-<div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rrep">Báo cáo</button> <button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
+<div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rchk">Kiểm tra chéo</button> <button class="btn ghost" id="rrep">Báo cáo</button> <button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
 <div id="qbox"><div id="qcard"><h3>Câu hỏi từ nhóm</h3><p class="rt" id="qsub"></p><div id="qlist"></div><div class="fr"><button class="btn" id="qgo">Gửi trả lời và bắt đầu làm</button><button class="btn ghost" id="qskip">Bỏ qua, cứ làm</button><button class="btn ghost" id="qcancel">Hủy dự án</button></div></div></div>
 <div id="fl"><div id="fhead"><b>Tệp</b><span><button class="btn" id="fadd">Thêm tệp</button> <button class="btn ghost" id="fclose">Đóng</button></span></div><input type="file" id="finp" multiple hidden accept="image/*,.txt,.md,.csv,.json,.html,.htm,.js,.css,.py,.ino,.c,.cpp,.h,.xml,.yml,.yaml,.log"><div id="flist"></div><div id="fview"><p class="rt">Bấm Thêm tệp hoặc kéo thả ảnh và tệp văn bản vào trang. Tệp chỉ nằm trên trình duyệt, nhớ bấm Tải về để giữ lại.</p></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -107,7 +108,7 @@ const hg=new THREE.Mesh(new THREE.IcosahedronGeometry(.5,1),hm);hg.position.y=1.
 let boost=0;
 
 // agents
-const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='',hold=false,starts=0;let sel=null,T=0;
+const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='',hold=false,starts=0,proj={active:false,start:0,chk:true};let sel=null,T=0;
 function build(a,i){
   const g=new THREE.Group();g.position.set(a.p[0],0,a.p[1]);g.rotation.y=Math.atan2(-a.p[0],-a.p[1]);scene.add(g);
   box(2.2,.12,1,0xc9a27a,0,1,1.3,g);
@@ -164,7 +165,7 @@ async function start(a,task){
 function finish(a){
   const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res,c:a.color,n:a.name});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
   if(a!==mgr)send(a,mgr,()=>say(mgr,'Đã nhận từ '+a.name,2000));upd();
-  if(hold&&!pending&&starts<=0&&AG.every(x=>x.state==='idle'))hold=false;
+  if(hold&&!pending&&starts<=0&&AG.every(x=>x.state==='idle')){if(proj.active){proj.active=false;onProjectDone()}else hold=false}
 }
 
 // selection / UI
@@ -214,15 +215,16 @@ $('#rdl').onclick=()=>{
   const u=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.md';a.click();URL.revokeObjectURL(u);
 };
 const PT={Minh:'Lập kế hoạch từng bước, có thứ tự và thời gian dự kiến, cho dự án: ',Code:'Đề xuất phần kỹ thuật cho dự án, kèm ví dụ code ngắn và giải thích từng bước. Dự án: ',Tìm:'Nghiên cứu và tổng hợp những thông tin cần biết (ý chính, ví dụ, lỗi hay gặp) cho dự án: ',Họa:'Đề xuất hướng thiết kế và hình ảnh (bảng màu, bố cục, ý tưởng) cho dự án: ',Bút:'Viết nội dung chính (kịch bản hoặc bài viết ngắn) cho dự án: '};
+let ctl=new AbortController(),runId=0;const timers=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 async function callAI(name,role,task,mode){
   const pv=PROV[name];
   for(let i=0;i<3;i++){
     let t='';
     try{
-      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode}),signal:AbortSignal.timeout(45000)});
+      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode}),signal:AbortSignal.any?AbortSignal.any([ctl.signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000)});
       t=(await r.json()).text||'';
-    }catch(e){return 'Lỗi: '+(e&&e.name==='TimeoutError'?'quá thời gian chờ (45 giây)':String(e.message||e).slice(0,80))}
+    }catch(e){return 'Lỗi: '+(e&&e.name==='TimeoutError'?'quá thời gian chờ (45 giây)':e&&e.name==='AbortError'?'đã dừng':String(e.message||e).slice(0,80))}
     if(!t.startsWith('Lỗi')||!/429/.test(t))return t;
     await sleep(4000);
   }
@@ -233,22 +235,23 @@ const normQ=s=>s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,'').replace(/\s+/g,' 
 function localMerge(raw){const seen=new Set(),out=[];raw.forEach(r=>{const k=normQ(r.q).slice(0,35);if(k&&!seen.has(k)){seen.add(k);out.push(r.q)}});return out.slice(0,6)}
 let pending=null;
 async function projectAsk(g){
-  const ws=AG.slice(1),raw=[];
+  const id=++runId,ws=AG.slice(1),raw=[];
   hold=true;$('#pgo').disabled=true;log('Nhóm đang nghĩ câu hỏi làm rõ…');
   ws.forEach(a=>{a.state='busy'});
   for(const a of ws){
     say(a,'Đang nghĩ câu hỏi…',0);
     const t=await callAI(a.name,a.role,'Dự án: '+g+'\nPhần việc của bạn: '+a.role,'ask');
+    if(id!==runId)return;
     say(a,'',0);
     if(t.startsWith('Lỗi'))log(a.name+' chưa hỏi được: '+t.slice(0,60));
     else parseQs(t,2).forEach(q=>raw.push({from:a.name,q}));
-    a.state='idle';await sleep(700);
+    a.state='idle';await sleep(700);if(id!==runId)return;
   }
   let qs=[];
   if(raw.length){
     say(mgr,'Đang tổng hợp câu hỏi…',0);
     const t=await callAI(mgr.name,mgr.role,'Dự án: '+g+'\nCác câu hỏi của nhóm:\n'+raw.map(r=>'- ['+r.from+'] '+r.q).join('\n'),'sum');
-    if(!t.startsWith('Lỗi'))qs=parseQs(t,6);
+    if(id!==runId)return;if(!t.startsWith('Lỗi'))qs=parseQs(t,6);
     if(!qs.length){qs=localMerge(raw);log('Minh chưa tổng hợp được, dùng cách gộp đơn giản')}
     say(mgr,'',0);
   }
@@ -264,8 +267,8 @@ function showQ(g,qs,n){
 }
 function runProject(g,ctx){
   if(AG.some(a=>a.state!=='idle')){hold=false;log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
-  hold=true;starts=AG.length;autoOpen=true;lastGoal=g;log('Dự án: '+g);
-  AG.forEach((a,i)=>setTimeout(()=>{assign(a,PT[a.name]+g+(ctx?'\n'+ctx:''),g);starts--},i*1500));
+  hold=true;starts=AG.length;autoOpen=true;lastGoal=g;proj={active:true,start:results.length,chk:$('#chkx').checked};log('Dự án: '+g);
+  AG.forEach((a,i)=>timers.push(setTimeout(()=>{assign(a,PT[a.name]+g+(ctx?'\n'+ctx:''),g);starts--},i*1500)));
 }
 function project(){
   const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
@@ -273,6 +276,50 @@ function project(){
   $('#goal').value='';
   if($('#askchk').checked&&WORKER_URL.startsWith('https://'))projectAsk(g);else runProject(g,'');
 }
+const REV={Code:'Tìm','Tìm':'Code','Họa':'Bút','Bút':'Tìm'};
+const isOk=t=>/^\W*(\*\*)?\s*KHÔNG CÓ LỖI/i.test(t.trim());
+async function crossCheck(from,id){
+  const list=results.slice(from).filter(r=>r.x&&!r.chk&&!r.rev&&REV[r.n]);
+  if(!list.length){log('Chưa có bài nào để kiểm tra chéo');return}
+  for(const r of list){
+    if(id!==runId)return;
+    const au=AG.find(a=>a.name===r.n),rv=AG.find(a=>a.name===REV[r.n]);
+    if(rv.state!=='idle'){continue}
+    rv.state='working';rv.until=Infinity;rv.last='Kiểm tra bài của '+au.name;say(rv,'Kiểm tra bài của '+au.name+'…',0);upd();
+    const task='Kiểm tra bài làm của '+au.name+' ('+au.role+') cho dự án: '+lastGoal+'.\nBài làm:\n'+r.x.slice(0,3000)+'\n\nNếu có lỗi (sai kiến thức, thiếu ý quan trọng, lỗi chính tả, code sai) hãy mở đầu bằng "ĐÃ SỬA:", liệt kê ngắn các lỗi rồi viết lại phần đã sửa. Nếu không có lỗi, chỉ trả lời đúng: KHÔNG CÓ LỖI.';
+    const t=await callAI(rv.name,rv.role,task,'review');
+    if(id!==runId)return;
+    rv.state='idle';say(rv,'',0);
+    const head=rv.name+' · Kiểm tra bài của '+au.name;
+    if(t.startsWith('Lỗi')){r.chk='err';log(rv.name+' chưa kiểm tra được: '+t.slice(0,60))}
+    else if(isOk(t)){r.chk='ok';results.push({a:head,t:'Kiểm tra: '+r.a,x:'Không phát hiện lỗi.',c:rv.color,n:rv.name,rev:true});log(rv.name+': bài của '+au.name+' không có lỗi')}
+    else{r.chk='fixed';results.push({a:head,t:'Kiểm tra: '+r.a,x:t,c:rv.color,n:rv.name,rev:true});log(rv.name+' đã sửa lỗi cho '+au.name)}
+    renderRes();upd();await sleep(700);
+  }
+}
+async function onProjectDone(){
+  const id=runId,from=proj.start;
+  if(proj.chk&&WORKER_URL.startsWith('https://')){log('Bắt đầu kiểm tra chéo…');await crossCheck(from,id)}
+  if(id!==runId)return;
+  hold=false;endSession(from);
+}
+function endSession(from){
+  const n=results.length-from;
+  AG.forEach(a=>{if(a.state==='idle')say(a,'Xong, nghỉ ✓',5000)});
+  log('Phiên làm việc đã kết thúc: '+n+' kết quả. Mở Kết quả > Báo cáo để xem.');
+  $('#fl').classList.remove('open');$('#res').classList.add('open');
+}
+function stopAll(){
+  runId++;proj.active=false;ctl.abort();ctl=new AbortController();
+  timers.splice(0).forEach(clearTimeout);
+  autoOn=false;$('#auto').textContent='Tự động: tắt';
+  hold=false;starts=0;pending=null;$('#qbox').classList.remove('open');$('#pgo').disabled=false;
+  packets.splice(0).forEach(p=>scene.remove(p.s));
+  AG.forEach(a=>{if(a.state==='working')a.until=0;else if(a.state==='busy')a.state='idle'});
+  log('Đã dừng tất cả');
+}
+$('#stopbtn').onclick=stopAll;
+$('#rchk').onclick=async()=>{if(hold||AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, thử lại sau');return}hold=true;await crossCheck(0,runId);hold=false};
 $('#qgo').onclick=()=>{
   if(!pending)return;const g=pending.g,pairs=[];
   $('#qlist').querySelectorAll('textarea').forEach(t=>{const a=t.value.trim();if(a)pairs.push({q:t.dataset.q,a})});
