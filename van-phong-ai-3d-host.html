@@ -22,8 +22,8 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #panel{position:absolute;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(440px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;backdrop-filter:blur(8px)}
 #card h2{margin:0;font-size:16px}
 #card .st{font-size:12.5px;color:var(--mute);margin:3px 0 0}
-#row,#row2{display:flex;gap:8px;margin-top:10px}#rbtn{pointer-events:auto;margin-top:8px}
-#in,#goal{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
+#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn{pointer-events:auto;margin-top:8px}
+#in,#goal,#ip{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
 .btn{background:var(--acc);color:#0d1f1c;border:0;border-radius:9px;padding:9px 13px;font:700 13px "Be Vietnam Pro",system-ui,sans-serif;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 #log{margin-top:10px;font-size:12px;color:var(--mute);line-height:1.5;min-height:72px}
@@ -48,9 +48,10 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div id="card"></div>
   <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
   <div id="row2"><input id="goal" placeholder="Dự án lớn, ví dụ: video hướng dẫn mạch đèn giao thông Arduino" maxlength="300"><button class="btn" id="pgo">Chạy dự án</button></div>
+  <div id="row3"><input id="ip" placeholder="Mô tả ảnh cần vẽ, ví dụ: logo kênh lofi, mèo và đèn đêm" maxlength="200"><button class="btn" id="pdraw">Vẽ ảnh</button></div>
   <div id="log"></div>
 </div>
-<div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
+<div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rrep">Báo cáo</button> <button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const AG=[
@@ -91,7 +92,7 @@ const hg=new THREE.Mesh(new THREE.IcosahedronGeometry(.5,1),hm);hg.position.y=1.
 let boost=0;
 
 // agents
-const packets=[],lines=[],results=[];let autoOpen=false;let sel=null,T=0;
+const packets=[],lines=[],results=[];let autoOpen=false,lastGoal='';let sel=null,T=0;
 function build(a,i){
   const g=new THREE.Group();g.position.set(a.p[0],0,a.p[1]);g.rotation.y=Math.atan2(-a.p[0],-a.p[1]);scene.add(g);
   box(2.2,.12,1,0xc9a27a,0,1,1.3,g);
@@ -147,7 +148,7 @@ async function start(a,task){
   a.until=ok?0:T+5+Math.random()*4;
 }
 function finish(a){
-  const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
+  const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res,c:a.color,n:a.name});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
   if(a!==mgr)send(a,mgr,()=>say(mgr,'Đã nhận từ '+a.name,2000));upd();
 }
 
@@ -183,23 +184,66 @@ function renderRes(){
     const x=document.createElement('pre');x.textContent=r.x;
     const b=document.createElement('button');b.className='btn ghost';b.textContent='Chép';
     b.onclick=()=>{try{navigator.clipboard.writeText(r.x);b.textContent='Đã chép'}catch(e){}};
-    d.append(h,t,x,b);box.appendChild(d);
+    d.append(h,t);
+    if(r.img){const im=document.createElement('img');im.src=r.img;im.alt=r.t;im.style.cssText='max-width:100%;border-radius:10px;display:block;margin:0 0 8px';d.appendChild(im);b.textContent='Tải ảnh';b.onclick=()=>{const a=document.createElement('a');a.href=r.img;a.download='anh-ai.jpg';a.click()}}
+    if(r.x)d.appendChild(x);
+    d.appendChild(b);box.appendChild(d);
   });
 }
 $('#rbtn').onclick=()=>$('#res').classList.toggle('open');
 $('#rclose').onclick=()=>$('#res').classList.remove('open');
 $('#rdl').onclick=()=>{
   if(!results.length)return;
-  const md='# Báo cáo văn phòng AI\n\n'+results.map(r=>'## '+r.a+'\n**Việc:** '+r.t+'\n\n'+r.x).join('\n\n---\n\n');
+  const md='# Báo cáo văn phòng AI\n\n'+results.filter(r=>r.x).map(r=>'## '+r.a+'\n**Việc:** '+r.t+'\n\n'+r.x).join('\n\n---\n\n');
   const u=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.md';a.click();URL.revokeObjectURL(u);
 };
 const PT={Minh:'Lập kế hoạch từng bước, có thứ tự và thời gian dự kiến, cho dự án: ',Code:'Đề xuất phần kỹ thuật cho dự án, kèm ví dụ code ngắn và giải thích từng bước. Dự án: ',Tìm:'Nghiên cứu và tổng hợp những thông tin cần biết (ý chính, ví dụ, lỗi hay gặp) cho dự án: ',Họa:'Đề xuất hướng thiết kế và hình ảnh (bảng màu, bố cục, ý tưởng) cho dự án: ',Bút:'Viết nội dung chính (kịch bản hoặc bài viết ngắn) cho dự án: '};
 function project(){
   const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
   if(AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
-  $('#goal').value='';autoOpen=true;log('Dự án: '+g);
+  $('#goal').value='';autoOpen=true;lastGoal=g;log('Dự án: '+g);
   AG.forEach(a=>assign(a,PT[a.name]+g,g));
 }
+const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function md2html(s){
+  const out=[];let ul=false;
+  s.split('\n').forEach(l=>{
+    const t=esc(l.trim()).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>');
+    const li=/^[-*•]\s+(.*)$/.exec(t),hd=/^#{1,4}\s+(.*)$/.exec(t);
+    if(li){if(!ul){out.push('<ul>');ul=true}out.push('<li>'+li[1]+'</li>');return}
+    if(ul){out.push('</ul>');ul=false}
+    if(hd)out.push('<h4>'+hd[1]+'</h4>');else if(t)out.push('<p>'+t+'</p>');
+  });
+  if(ul)out.push('</ul>');return out.join('');
+}
+function buildReport(){
+  const order=AG.map(a=>a.name),hex=c=>'#'+c.toString(16).padStart(6,'0');
+  const rs=results.slice().sort((a,b)=>order.indexOf(a.n)-order.indexOf(b.n));
+  const title=lastGoal?'Báo cáo dự án: '+lastGoal:'Báo cáo văn phòng AI';
+  const secs=rs.map(r=>'<section style="border-left:5px solid '+hex(r.c)+'"><h2>'+esc(r.a)+'</h2><p class="t">'+esc(r.t)+'</p>'+(r.img?'<img src="'+r.img+'" alt="">':'')+md2html(r.x||'')+'</section>').join('');
+  return '<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>body{margin:0;background:#f4f2ee;color:#1c1b2e;font:16px/1.65 "Be Vietnam Pro",system-ui,sans-serif}main{max-width:780px;margin:0 auto;padding:40px 20px}header{margin-bottom:28px}h1{font-size:30px;margin:0 0 6px}.d{color:#6b6880;font-size:14px}section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}h2{font-size:18px;margin:0}.t{color:#6b6880;font-size:13px;margin:4px 0 12px}h4{margin:14px 0 4px}img{max-width:100%;border-radius:10px}ul{padding-left:20px}@media print{body{background:#fff}section{box-shadow:none;border:1px solid #ddd}}</style></head><body><main><header><h1>'+esc(title)+'</h1><div class="d">Tạo ngày '+new Date().toLocaleDateString('vi-VN')+' bởi văn phòng AI · '+rs.length+' phần</div></header>'+secs+'</main></body></html>';
+}
+$('#rrep').onclick=()=>{
+  if(!results.length){log('Chưa có kết quả để làm báo cáo');return}
+  const u=URL.createObjectURL(new Blob([buildReport()],{type:'text/html'}));
+  if(!window.open(u,'_blank')){const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.html';a.click()}
+};
+async function drawImage(){
+  const p=$('#ip').value.trim();if(!p){log('Gõ mô tả ảnh rồi bấm Vẽ ảnh');return}
+  const a=AG[3];if(a.state!=='idle'){log('Họa đang bận, thử lại sau');return}
+  a.state='working';a.until=Infinity;a.task='Vẽ ảnh: '+p.slice(0,50);a.last=a.task;say(a,'Đang vẽ ảnh…',0);upd();$('#ip').value='';
+  let img='',err='';
+  try{
+    if(!WORKER_URL.startsWith('https://'))throw new Error('chưa có địa chỉ Worker');
+    const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:'cfimg',role:a.role,task:p})});
+    const d=await r.json();if(d.image)img='data:image/jpeg;base64,'+d.image;else err=d.text||'Lỗi';
+  }catch(e){err='Lỗi: '+String(e.message||e).slice(0,80)}
+  a.state='idle';a.task='';
+  if(img){results.push({a:a.name+' · '+a.role+' (ảnh AI)',t:p,x:'',img,c:a.color,n:a.name});say(a,'Vẽ xong ✓',3000);log('Họa vẽ xong ảnh');autoOpen=true;renderRes()}
+  else{say(a,err.slice(0,80),5000);log('Họa: '+err)}
+  upd();
+}
+$('#pdraw').onclick=drawImage;$('#ip').addEventListener('keydown',e=>{if(e.key==='Enter')drawImage()});
 $('#pgo').onclick=project;$('#goal').addEventListener('keydown',e=>{if(e.key==='Enter')project()});
 upd();log('Văn phòng đã mở cửa');
 
