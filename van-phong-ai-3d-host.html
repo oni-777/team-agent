@@ -22,8 +22,8 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #panel{position:absolute;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(440px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;backdrop-filter:blur(8px)}
 #card h2{margin:0;font-size:16px}
 #card .st{font-size:12.5px;color:var(--mute);margin:3px 0 0}
-#row{display:flex;gap:8px;margin-top:10px}
-#in{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
+#row,#row2{display:flex;gap:8px;margin-top:10px}#rbtn{pointer-events:auto;margin-top:8px}
+#in,#goal{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
 .btn{background:var(--acc);color:#0d1f1c;border:0;border-radius:9px;padding:9px 13px;font:700 13px "Be Vietnam Pro",system-ui,sans-serif;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
 #log{margin-top:10px;font-size:12px;color:var(--mute);line-height:1.5;min-height:72px}
@@ -33,15 +33,24 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .tag b{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-weight:600}
 .tag .msg{margin:4px auto 0;max-width:150px;white-space:normal;background:#f2efe9;color:#1a1a2e;border-radius:8px;padding:4px 8px;font-size:11px}
 .tag .msg:empty{display:none}
+#res{position:absolute;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--panel);border-left:1px solid var(--line);backdrop-filter:blur(10px);transform:translateX(100%);transition:transform .25s;z-index:5;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#res.open{transform:none}
+#rhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+#rlist{overflow:auto;padding:12px 14px;touch-action:pan-y;flex:1}
+.ri{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
+.ri h3{margin:0;font-size:14px}.rt{margin:3px 0 8px;font-size:12px;color:var(--mute)}
+.ri pre{white-space:pre-wrap;word-break:break-word;font:400 13px/1.55 "Be Vietnam Pro",system-ui,sans-serif;margin:0 0 8px}
 </style>
 </head>
 <body>
-<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div></div>
+<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button></div>
 <div id="panel">
   <div id="card"></div>
-  <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="80"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
+  <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
+  <div id="row2"><input id="goal" placeholder="Dự án lớn, ví dụ: video hướng dẫn mạch đèn giao thông Arduino" maxlength="300"><button class="btn" id="pgo">Chạy dự án</button></div>
   <div id="log"></div>
 </div>
+<div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const AG=[
@@ -82,7 +91,7 @@ const hg=new THREE.Mesh(new THREE.IcosahedronGeometry(.5,1),hm);hg.position.y=1.
 let boost=0;
 
 // agents
-const packets=[],lines=[];let sel=null,T=0;
+const packets=[],lines=[],results=[];let autoOpen=false;let sel=null,T=0;
 function build(a,i){
   const g=new THREE.Group();g.position.set(a.p[0],0,a.p[1]);g.rotation.y=Math.atan2(-a.p[0],-a.p[1]);scene.add(g);
   box(2.2,.12,1,0xc9a27a,0,1,1.3,g);
@@ -117,17 +126,17 @@ function send(from,to,cb){
   const s=new THREE.Mesh(new THREE.SphereGeometry(.13,12,12),new THREE.MeshBasicMaterial({color:to.color}));scene.add(s);
   packets.push({s,a:from.head.getWorldPosition(new THREE.Vector3()),b:to.head.getWorldPosition(new THREE.Vector3()),t:0,cb});boost=1;
 }
-function assign(to,task){
+function assign(to,task,label){
   if(to.state!=='idle'){log(to.name+' đang bận, thử lại sau');return false}
-  to.state='busy';to.last=task;
+  to.state='busy';to.last=label||task;
   if(to===mgr){start(to,task);return true}
-  log(mgr.name+' giao cho '+to.name+': '+task);say(mgr,'Giao việc cho '+to.name,2200);
+  log(mgr.name+' giao cho '+to.name+': '+(label||task));say(mgr,'Giao việc cho '+to.name,2200);
   send(mgr,to,()=>start(to,task));return true;
 }
 const WORKER_URL='https://hello-world-wandering-wildflower-8431.mr-oni-14173.workers.dev';
 const PROV={'Code':'groq','Minh':'pi','Họa':'openai','Tìm':'deepseek','Bút':'gemini'};
 async function start(a,task){
-  a.state='working';a.task=task;a.until=Infinity;a.result='';say(a,task,0);upd();
+  a.state='working';a.task=a.last||task;a.until=Infinity;a.result='';say(a,(a.last||task).slice(0,80),0);upd();
   let ok=false;
   try{
     if(PROV[a.name]&&WORKER_URL.startsWith('https://')){
@@ -138,7 +147,7 @@ async function start(a,task){
   a.until=ok?0:T+5+Math.random()*4;
 }
 function finish(a){
-  const res=a.result;a.result='';a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
+  const res=a.result;a.result='';if(res){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
   if(a!==mgr)send(a,mgr,()=>say(mgr,'Đã nhận từ '+a.name,2000));upd();
 }
 
@@ -154,7 +163,7 @@ function submit(){
   const inp=$('#in');let t=inp.value.trim(),target=sel;
   if(!t&&target)t=target.tasks[Math.floor(Math.random()*target.tasks.length)];
   if(!t){log('Hãy gõ việc cần giao');return}
-  if(!target||target===mgr){
+  if(!target){
     const r=ROUTE.find(x=>x[0].test(t));target=r?AG[r[1]]:null;
     if(!target){const idle=workers.filter(w=>w.state==='idle');target=idle.length?idle[Math.floor(Math.random()*idle.length)]:workers[0]}
   }
@@ -163,6 +172,35 @@ function submit(){
 $('#go').onclick=submit;$('#in').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});
 let autoOn=false,nextAuto=3;
 $('#auto').onclick=()=>{autoOn=!autoOn;$('#auto').textContent='Tự động: '+(autoOn?'bật':'tắt')};
+function renderRes(){
+  $('#rbtn').textContent='Kết quả ('+results.length+')';
+  if(autoOpen){$('#res').classList.add('open');autoOpen=false}
+  const box=$('#rlist');box.textContent='';
+  results.slice().reverse().forEach(r=>{
+    const d=document.createElement('div');d.className='ri';
+    const h=document.createElement('h3');h.textContent=r.a;
+    const t=document.createElement('p');t.className='rt';t.textContent='Việc: '+r.t;
+    const x=document.createElement('pre');x.textContent=r.x;
+    const b=document.createElement('button');b.className='btn ghost';b.textContent='Chép';
+    b.onclick=()=>{try{navigator.clipboard.writeText(r.x);b.textContent='Đã chép'}catch(e){}};
+    d.append(h,t,x,b);box.appendChild(d);
+  });
+}
+$('#rbtn').onclick=()=>$('#res').classList.toggle('open');
+$('#rclose').onclick=()=>$('#res').classList.remove('open');
+$('#rdl').onclick=()=>{
+  if(!results.length)return;
+  const md='# Báo cáo văn phòng AI\n\n'+results.map(r=>'## '+r.a+'\n**Việc:** '+r.t+'\n\n'+r.x).join('\n\n---\n\n');
+  const u=URL.createObjectURL(new Blob([md],{type:'text/markdown'}));const a=document.createElement('a');a.href=u;a.download='bao-cao-van-phong-ai.md';a.click();URL.revokeObjectURL(u);
+};
+const PT={Minh:'Lập kế hoạch từng bước, có thứ tự và thời gian dự kiến, cho dự án: ',Code:'Đề xuất phần kỹ thuật cho dự án, kèm ví dụ code ngắn và giải thích từng bước. Dự án: ',Tìm:'Nghiên cứu và tổng hợp những thông tin cần biết (ý chính, ví dụ, lỗi hay gặp) cho dự án: ',Họa:'Đề xuất hướng thiết kế và hình ảnh (bảng màu, bố cục, ý tưởng) cho dự án: ',Bút:'Viết nội dung chính (kịch bản hoặc bài viết ngắn) cho dự án: '};
+function project(){
+  const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
+  if(AG.some(a=>a.state!=='idle')){log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
+  $('#goal').value='';autoOpen=true;log('Dự án: '+g);
+  AG.forEach(a=>assign(a,PT[a.name]+g,g));
+}
+$('#pgo').onclick=project;$('#goal').addEventListener('keydown',e=>{if(e.key==='Enter')project()});
 upd();log('Văn phòng đã mở cửa');
 
 // camera orbit
