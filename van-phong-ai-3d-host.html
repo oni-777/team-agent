@@ -45,10 +45,10 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const AG=[
- {name:'Minh',ai:'OpenAI',role:'Điều phối',color:0xffc857,p:[0,-3.6],tasks:['Lên kế hoạch tuần','Duyệt kết quả cả nhóm','Sắp xếp thứ tự ưu tiên']},
- {name:'Code',ai:'Claude',role:'Lập trình',color:0x3ee0c5,p:[-5,-.5],tasks:['Viết hàm đọc cảm biến','Sửa lỗi Arduino','Tối ưu vòng lặp chính']},
+ {name:'Minh',ai:'Pi',role:'Điều phối',color:0xffc857,p:[0,-3.6],tasks:['Lên kế hoạch tuần','Duyệt kết quả cả nhóm','Sắp xếp thứ tự ưu tiên']},
+ {name:'Code',ai:'Groq',role:'Lập trình',color:0x3ee0c5,p:[-5,-.5],tasks:['Viết hàm đọc cảm biến','Sửa lỗi Arduino','Tối ưu vòng lặp chính']},
  {name:'Tìm',ai:'DeepSeek',role:'Nghiên cứu',color:0x7aa2ff,p:[5,-.5],tasks:['So sánh 3 mạch điều khiển','Tra cứu tài liệu động cơ','Tổng hợp tin mới']},
- {name:'Họa',ai:'ChatGPT',role:'Thiết kế',color:0xff7aa8,p:[-3,3],tasks:['Vẽ logo kênh','Làm ảnh bìa video','Chỉnh bảng màu website']},
+ {name:'Họa',ai:'OpenAI',role:'Thiết kế',color:0xff7aa8,p:[-3,3],tasks:['Vẽ logo kênh','Làm ảnh bìa video','Chỉnh bảng màu website']},
  {name:'Bút',ai:'Gemini',role:'Nội dung',color:0xb48cff,p:[3,3],tasks:['Viết kịch bản video','Viết mô tả sách','Soạn caption đăng bài']}
 ];
 const ROUTE=[[/code|lập trình|arduino|lỗi|bug|hàm|mạch/i,1],[/tìm|nghiên cứu|so sánh|tra cứu|tổng hợp/i,2],[/thiết kế|logo|ảnh|giao diện|màu|bìa/i,3],[/viết|bài|nội dung|caption|kịch bản|mô tả/i,4]];
@@ -125,7 +125,7 @@ function assign(to,task){
   send(mgr,to,()=>start(to,task));return true;
 }
 const WORKER_URL='https://hello-world-wandering-wildflower-8431.mr-oni-14173.workers.dev';
-const PROV={'Minh':'openai','Họa':'openai','Tìm':'deepseek','Bút':'gemini'};
+const PROV={'Code':'groq','Minh':'pi','Họa':'openai','Tìm':'deepseek','Bút':'gemini'};
 async function start(a,task){
   a.state='working';a.task=task;a.until=Infinity;a.result='';say(a,task,0);upd();
   let ok=false;
