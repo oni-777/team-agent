@@ -22,7 +22,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #panel{position:absolute;left:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 12px);width:min(440px,calc(100% - 24px));background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;backdrop-filter:blur(8px)}
 #card h2{margin:0;font-size:16px}
 #card .st{font-size:12.5px;color:var(--mute);margin:3px 0 0}
-#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn{pointer-events:auto;margin-top:8px}
+#row,#row2,#row3{display:flex;gap:8px;margin-top:10px}#rbtn,#fbtn{pointer-events:auto;margin-top:8px}
 #in,#goal,#ip{flex:1;min-width:0;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--ink);border-radius:9px;padding:9px 10px;font:400 13px "Be Vietnam Pro",system-ui,sans-serif}
 .btn{background:var(--acc);color:#0d1f1c;border:0;border-radius:9px;padding:9px 13px;font:700 13px "Be Vietnam Pro",system-ui,sans-serif;cursor:pointer}
 .btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}
@@ -33,17 +33,24 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 .tag b{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:2px 7px;font-weight:600}
 .tag .msg{margin:4px auto 0;max-width:150px;white-space:normal;background:#f2efe9;color:#1a1a2e;border-radius:8px;padding:4px 8px;font-size:11px}
 .tag .msg:empty{display:none}
-#res{position:absolute;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--panel);border-left:1px solid var(--line);backdrop-filter:blur(10px);transform:translateX(100%);transition:transform .25s;z-index:5;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
-#res.open{transform:none}
-#rhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+#res,#fl{position:absolute;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--panel);border-left:1px solid var(--line);backdrop-filter:blur(10px);transform:translateX(100%);transition:transform .25s;z-index:5;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+#res.open,#fl.open{transform:none}#fl{width:min(560px,100%)}
+#rhead,#fhead{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
 #rlist{overflow:auto;padding:12px 14px;touch-action:pan-y;flex:1}
 .ri{margin-bottom:16px;padding-bottom:14px;border-bottom:1px solid var(--line)}
 .ri h3{margin:0;font-size:14px}.rt{margin:3px 0 8px;font-size:12px;color:var(--mute)}
 .ri pre{white-space:pre-wrap;word-break:break-word;font:400 13px/1.55 "Be Vietnam Pro",system-ui,sans-serif;margin:0 0 8px}
+#flist{display:flex;gap:6px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line)}
+#fview{flex:1;overflow:auto;padding:12px 14px;touch-action:pan-y}
+#fview textarea{width:100%;height:42vh;box-sizing:border-box;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:10px;font:13px/1.5 ui-monospace,monospace}
+#fview canvas{max-width:100%;border-radius:8px;display:block;margin-bottom:10px}
+#fview input,#fview select{background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif;min-width:0}
+#fview select option{color:#000}#fview input[type=range]{width:110px;padding:0}
+.fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:8px 0}.fr label{font-size:12px;color:var(--mute)}
 </style>
 </head>
 <body>
-<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button></div>
+<div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button> <button class="chip" id="fbtn">Tệp (0)</button></div>
 <div id="panel">
   <div id="card"></div>
   <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
@@ -52,6 +59,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <div id="log"></div>
 </div>
 <div id="res"><div id="rhead"><b>Kết quả</b><span><button class="btn ghost" id="rrep">Báo cáo</button> <button class="btn ghost" id="rdl">Tải .md</button> <button class="btn ghost" id="rclose">Đóng</button></span></div><div id="rlist"></div></div>
+<div id="fl"><div id="fhead"><b>Tệp</b><span><button class="btn" id="fadd">Thêm tệp</button> <button class="btn ghost" id="fclose">Đóng</button></span></div><input type="file" id="finp" multiple hidden accept="image/*,.txt,.md,.csv,.json,.html,.htm,.js,.css,.py,.ino,.c,.cpp,.h,.xml,.yml,.yaml,.log"><div id="flist"></div><div id="fview"><p class="rt">Bấm Thêm tệp hoặc kéo thả ảnh và tệp văn bản vào trang. Tệp chỉ nằm trên trình duyệt, nhớ bấm Tải về để giữ lại.</p></div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 const AG=[
@@ -175,7 +183,7 @@ let autoOn=false,nextAuto=3;
 $('#auto').onclick=()=>{autoOn=!autoOn;$('#auto').textContent='Tự động: '+(autoOn?'bật':'tắt')};
 function renderRes(){
   $('#rbtn').textContent='Kết quả ('+results.length+')';
-  if(autoOpen){$('#res').classList.add('open');autoOpen=false}
+  if(autoOpen){$('#res').classList.add('open');$('#fl').classList.remove('open');autoOpen=false}
   const box=$('#rlist');box.textContent='';
   results.slice().reverse().forEach(r=>{
     const d=document.createElement('div');d.className='ri';
@@ -187,10 +195,11 @@ function renderRes(){
     d.append(h,t);
     if(r.img){const im=document.createElement('img');im.src=r.img;im.alt=r.t;im.style.cssText='max-width:100%;border-radius:10px;display:block;margin:0 0 8px';d.appendChild(im);b.textContent='Tải ảnh';b.onclick=()=>{const a=document.createElement('a');a.href=r.img;a.download='anh-ai.jpg';a.click()}}
     if(r.x)d.appendChild(x);
-    d.appendChild(b);box.appendChild(d);
+    const b2=document.createElement('button');b2.className='btn ghost';b2.style.marginLeft='6px';b2.textContent='Mở trong Tệp';b2.onclick=()=>saveRes(r);
+    d.appendChild(b);d.appendChild(b2);box.appendChild(d);
   });
 }
-$('#rbtn').onclick=()=>$('#res').classList.toggle('open');
+$('#rbtn').onclick=()=>{$('#fl').classList.remove('open');$('#res').classList.toggle('open')};
 $('#rclose').onclick=()=>$('#res').classList.remove('open');
 $('#rdl').onclick=()=>{
   if(!results.length)return;
@@ -223,6 +232,106 @@ function buildReport(){
   const secs=rs.map(r=>'<section style="border-left:5px solid '+hex(r.c)+'"><h2>'+esc(r.a)+'</h2><p class="t">'+esc(r.t)+'</p>'+(r.img?'<img src="'+r.img+'" alt="">':'')+md2html(r.x||'')+'</section>').join('');
   return '<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'+esc(title)+'</title><style>body{margin:0;background:#f4f2ee;color:#1c1b2e;font:16px/1.65 "Be Vietnam Pro",system-ui,sans-serif}main{max-width:780px;margin:0 auto;padding:40px 20px}header{margin-bottom:28px}h1{font-size:30px;margin:0 0 6px}.d{color:#6b6880;font-size:14px}section{background:#fff;border-radius:12px;padding:20px 24px;margin-bottom:18px;box-shadow:0 1px 3px rgba(0,0,0,.08)}h2{font-size:18px;margin:0}.t{color:#6b6880;font-size:13px;margin:4px 0 12px}h4{margin:14px 0 4px}img{max-width:100%;border-radius:10px}ul{padding-left:20px}@media print{body{background:#fff}section{box-shadow:none;border:1px solid #ddd}}</style></head><body><main><header><h1>'+esc(title)+'</h1><div class="d">Tạo ngày '+new Date().toLocaleDateString('vi-VN')+' bởi văn phòng AI · '+rs.length+' phần</div></header>'+secs+'</main></body></html>';
 }
+const files=[];let curF=-1;
+const TXT=/\.(txt|md|csv|json|html?|js|css|py|ino|c|cpp|h|xml|ya?ml|log)$/i;
+function mk(tag,txt,cls){const e=document.createElement(tag);if(txt)e.textContent=txt;if(cls)e.className=cls;return e}
+function dl(href,name){const a=document.createElement('a');a.href=href;a.download=name;a.click()}
+function addFiles(list){
+  let n=0;
+  [...list].forEach(f=>{
+    if(f.size>8e6){log('Tệp quá lớn (trên 8 MB): '+f.name);return}
+    const img=/^image\//.test(f.type),txt=!img&&(TXT.test(f.name)||/^text\//.test(f.type));
+    if(!img&&!txt){log('Chưa hỗ trợ định dạng: '+f.name);return}
+    const rd=new FileReader();n++;
+    rd.onload=()=>{files.push({n:f.name,k:img?'img':'txt',d:rd.result});openF(files.length-1);renderFiles()};
+    if(img)rd.readAsDataURL(f);else rd.readAsText(f);
+  });
+  if(n){$('#res').classList.remove('open');$('#fl').classList.add('open')}
+}
+function renderFiles(){
+  $('#fbtn').textContent='Tệp ('+files.length+')';
+  const l=$('#flist');l.textContent='';
+  files.forEach((f,i)=>{const b=mk('button',f.n,'chip'+(i===curF?' sel':''));b.onclick=()=>{openF(i);renderFiles()};l.appendChild(b)});
+}
+function saveRes(r){
+  const k=files.length+1;
+  files.push(r.img?{n:'anh-ai-'+k+'.jpg',k:'img',d:r.img}:{n:(r.n||'ket-qua')+'-'+k+'.md',k:'txt',d:'# '+r.a+'\n\n'+r.x});
+  $('#res').classList.remove('open');$('#fl').classList.add('open');openF(files.length-1);renderFiles();
+}
+function openF(i){
+  curF=i;const f=files[i],v=$('#fview');v.textContent='';
+  if(!f)return;
+  if(f.k==='txt')viewTxt(f,v);else viewImg(f,v);
+}
+function viewTxt(f,v){
+  const ta=mk('textarea');ta.value=f.d;ta.spellcheck=false;ta.oninput=()=>{f.d=ta.value};
+  let prev=null;
+  const r1=mk('div','','fr'),b1=mk('button','Tải về','btn');
+  b1.onclick=()=>dl(URL.createObjectURL(new Blob([f.d],{type:'text/plain'})),f.n);
+  const bu=mk('button','Hoàn tác','btn ghost');bu.onclick=()=>{if(prev!==null){f.d=prev;ta.value=prev;prev=null}};
+  r1.append(b1,bu);
+  const r2=mk('div','','fr'),sl=mk('select');
+  AG.forEach(a=>{const o=mk('option',a.name+' ('+a.ai+')');o.value=a.name;sl.appendChild(o)});
+  sl.value=/\.(js|py|ino|c|cpp|h|css|html?)$/i.test(f.n)?'Code':'Bút';
+  const ins=mk('input');ins.placeholder='Yêu cầu chỉnh sửa, ví dụ: sửa lỗi chính tả';ins.style.flex='1';
+  const bg=mk('button','Nhờ AI chỉnh','btn');
+  bg.onclick=async()=>{
+    const q=ins.value.trim();if(!q){log('Gõ yêu cầu chỉnh sửa');return}
+    if(f.d.length>7000){log('Tệp dài hơn 7.000 ký tự, chưa nhờ AI chỉnh được');return}
+    if(!WORKER_URL.startsWith('https://')){log('Chưa có địa chỉ Worker');return}
+    const a=AG.find(x=>x.name===sl.value),pv=PROV[a.name];
+    prev=f.d;bg.disabled=true;bg.textContent='Đang chỉnh…';say(a,'Đang chỉnh '+f.n,0);
+    try{
+      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role:a.role,mode:'edit',task:'Yêu cầu: '+q+'\n\nNội dung tệp '+f.n+':\n'+f.d})});
+      const d=await r.json();
+      if(d.text&&!d.text.startsWith('Lỗi')){f.d=d.text.replace(/^```[a-z]*\n?/,'').replace(/```\s*$/,'').trim();ta.value=f.d;log(a.name+' đã chỉnh '+f.n+' (bấm Hoàn tác nếu chưa ưng)')}
+      else{prev=null;log(a.name+': '+(d.text||'Lỗi'))}
+    }catch(e){prev=null;log('Lỗi: '+String(e.message||e).slice(0,80))}
+    say(a,'',0);bg.disabled=false;bg.textContent='Nhờ AI chỉnh';
+  };
+  r2.append(sl,ins,bg);
+  v.append(ta,r1,r2);
+}
+function viewImg(f,v){
+  const cv=mk('canvas'),cx=cv.getContext('2d'),st={b:100,c:100,g:0};
+  const im=new Image();
+  im.onload=()=>{const s=Math.min(1,2000/Math.max(im.width,im.height));cv.width=Math.round(im.width*s);cv.height=Math.round(im.height*s);cx.drawImage(im,0,0,cv.width,cv.height)};
+  im.src=f.d;
+  const flt=()=>{cv.style.filter='brightness('+st.b+'%) contrast('+st.c+'%) grayscale('+st.g+'%)'};
+  const xf=(w,h,fn)=>{const s=mk('canvas');s.width=cv.width;s.height=cv.height;s.getContext('2d').drawImage(cv,0,0);const W=s.width,H=s.height;cv.width=w;cv.height=h;fn(cx,s,W,H)};
+  const op=(t,fn)=>{const b=mk('button',t,'btn ghost');b.onclick=fn;return b};
+  const rr=op('Xoay phải',()=>xf(cv.height,cv.width,(c,s,W,H)=>{c.translate(H,0);c.rotate(Math.PI/2);c.drawImage(s,0,0)}));
+  const rl=op('Xoay trái',()=>xf(cv.height,cv.width,(c,s,W,H)=>{c.translate(0,W);c.rotate(-Math.PI/2);c.drawImage(s,0,0)}));
+  const fp=op('Lật ngang',()=>xf(cv.width,cv.height,(c,s,W)=>{c.translate(W,0);c.scale(-1,1);c.drawImage(s,0,0)}));
+  const sq=op('Cắt vuông',()=>{const m=Math.min(cv.width,cv.height);xf(m,m,(c,s,W,H)=>c.drawImage(s,(W-m)/2,(H-m)/2,m,m,0,0,m,m))});
+  const hf=op('Thu nhỏ 50%',()=>xf(Math.max(1,cv.width>>1),Math.max(1,cv.height>>1),(c,s)=>c.drawImage(s,0,0,cv.width,cv.height)));
+  const rg=(lb,min,max,key)=>{const w=mk('label',lb+' ');const r=mk('input');r.type='range';r.min=min;r.max=max;r.value=st[key];r.oninput=()=>{st[key]=+r.value;flt()};w.appendChild(r);return w};
+  const tx=mk('input');tx.placeholder='Chữ chèn lên ảnh';tx.style.flex='1';
+  const tb=op('Thêm chữ',()=>{
+    const t=tx.value.trim();if(!t)return;const fs=Math.max(16,Math.round(cv.height/12));
+    cx.font='700 '+fs+'px "Be Vietnam Pro",system-ui,sans-serif';cx.textAlign='center';cx.textBaseline='bottom';
+    cx.lineWidth=Math.max(2,fs/8);cx.strokeStyle='#000';cx.fillStyle='#fff';
+    cx.strokeText(t,cv.width/2,cv.height-fs/2,cv.width*.95);cx.fillText(t,cv.width/2,cv.height-fs/2,cv.width*.95);tx.value='';
+  });
+  const bake=()=>{const o=mk('canvas');o.width=cv.width;o.height=cv.height;const x=o.getContext('2d');x.filter=cv.style.filter||'none';x.drawImage(cv,0,0);return o};
+  const mime=/\.png$/i.test(f.n)?'image/png':'image/jpeg';
+  const nm=/\.(png|jpe?g)$/i.test(f.n)?f.n:f.n.replace(/\.[^.]*$/,'')+(mime==='image/png'?'.png':'.jpg');
+  const sv=op('Lưu bản chỉnh',()=>{f.d=bake().toDataURL(mime,.92);if(nm!==f.n){f.n=nm;renderFiles()}v.textContent='';viewImg(f,v);log('Đã lưu bản chỉnh của '+f.n)});
+  sv.className='btn';
+  const dw=op('Tải về',()=>dl(bake().toDataURL(mime,.92),nm));
+  const rs=op('Làm lại',()=>{v.textContent='';viewImg(f,v)});
+  const r1=mk('div','','fr');r1.append(rl,rr,fp,sq,hf);
+  const r2=mk('div','','fr');r2.append(rg('Sáng',40,160,'b'),rg('Tương phản',40,180,'c'),rg('Trắng đen',0,100,'g'));
+  const r3=mk('div','','fr');r3.append(tx,tb);
+  const r4=mk('div','','fr');r4.append(sv,dw,rs);
+  v.append(cv,r1,r2,r3,r4,mk('p','Bộ lọc sáng, tương phản và trắng đen chỉ lưu được trên Chrome, Edge, Firefox.','rt'));
+}
+$('#fbtn').onclick=()=>{$('#res').classList.remove('open');$('#fl').classList.toggle('open')};
+$('#fclose').onclick=()=>$('#fl').classList.remove('open');
+$('#fadd').onclick=()=>$('#finp').click();
+$('#finp').onchange=e=>{addFiles(e.target.files);e.target.value=''};
+addEventListener('dragover',e=>e.preventDefault());
+addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer&&e.dataTransfer.files.length)addFiles(e.dataTransfer.files)});
 $('#rrep').onclick=()=>{
   if(!results.length){log('Chưa có kết quả để làm báo cáo');return}
   const u=URL.createObjectURL(new Blob([buildReport()],{type:'text/html'}));
