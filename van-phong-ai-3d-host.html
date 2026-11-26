@@ -51,7 +51,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 #qcard,#ncard,#hcard{background:var(--bg);border:1px solid var(--line);border-radius:14px;padding:18px;width:min(560px,100%);max-height:86vh;overflow:auto;touch-action:pan-y}
 #qcard h3,#ncard h3,#hcard h3{margin:0 0 4px}#ncard label{display:block;font-size:12px;color:var(--mute);margin:6px 0}.ni{border-bottom:1px solid var(--line);padding-bottom:10px;margin-bottom:6px}.qq{margin:12px 0 4px;font-weight:600;font-size:14px}
 #qcard textarea{width:100%;box-sizing:border-box;background:rgba(255,255,255,.08);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px;font:13px "Be Vietnam Pro",system-ui,sans-serif}
-#askrow,#chkrow,#clrchk2{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
+#askrow,#chkrow,#clrchk2,#pipelbl{display:block;margin-top:8px;font-size:12.5px;color:var(--mute)}
 </style>
 </head>
 <body>
@@ -63,6 +63,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
   <label id="askrow"><input type="checkbox" id="askchk" checked> Nhóm hỏi làm rõ trước khi làm (khuyên dùng)</label>
   <label id="chkrow"><input type="checkbox" id="chkx" checked> Kiểm tra chéo: agent này sửa lỗi cho agent kia sau khi làm xong (khuyên dùng)</label>
   <label id="clrchk2" class="askl"><input type="checkbox" id="clrchk" checked> Cất kết quả dự án cũ vào Lịch sử khi bắt đầu dự án mới</label>
+  <label id="pipelbl"><input type="checkbox" id="pipechk" checked> Làm theo quy trình: Minh và Tìm làm trước, Code, Họa, Bút dựa vào kết quả đó (khuyên dùng)</label>
   <div id="row3"><input id="ip" placeholder="Mô tả ảnh cần vẽ, ví dụ: logo kênh lofi, mèo và đèn đêm" maxlength="200"><button class="btn" id="pdraw">Vẽ ảnh</button></div>
   <div id="log"></div>
 </div>
@@ -299,11 +300,34 @@ function showQ(g,qs,n){
     att.append(ab,fi);d.appendChild(att);box.appendChild(d)});
   $('#qbox').classList.add('open');log('Minh gửi bạn '+qs.length+' câu hỏi, mời trả lời');
 }
-function runProject(g,ctx){
+async function waitIdle(names,id){
+  for(let i=0;i<360;i++){
+    await sleep(500);if(id!==runId)return false;
+    if(names.every(n=>AG.find(x=>x.name===n).state==='idle'))return true;
+  }
+  return true;
+}
+async function runProject(g,ctx){
   if(AG.some(a=>a.state!=='idle')){hold=false;log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
-  hold=true;starts=AG.length;autoOpen=true;lastGoal=g;savedGoal=g;try{localStorage.setItem('vpai_goal',g)}catch(e){}proj={active:true,start:results.length,chk:$('#chkx').checked};log('Dự án: '+g);
+  const id=runId,pipe=$('#pipechk').checked;
+  hold=true;starts=pipe?999:AG.length;autoOpen=true;lastGoal=g;savedGoal=g;try{localStorage.setItem('vpai_goal',g)}catch(e){}
+  proj={active:true,start:results.length,chk:$('#chkx').checked};log('Dự án: '+g);
   const full=[ctx,noteCtx(g)].filter(Boolean).join('\n');
-  AG.forEach((a,i)=>timers.push(setTimeout(()=>{assign(a,PT[a.name]+g+(full?'\n'+full:''),g);starts--},i*1500)));
+  let extra='';
+  const task=a=>{const s=PT[a.name]+g,f=full.slice(0,Math.max(0,2900-s.length-extra.length-2));return s+(f?'\n'+f:'')+extra};
+  if(!pipe){AG.forEach((a,i)=>timers.push(setTimeout(()=>{assign(a,task(a),g);starts--},i*1500)));return}
+  const stage=async(names,last)=>{
+    for(const n of names){const a=AG.find(x=>x.name===n);assign(a,task(a),g);await sleep(1200);if(id!==runId)return false}
+    if(last)starts=0;
+    return waitIdle(names,id);
+  };
+  log('Quy trình: Minh và Tìm làm trước, sau đó Code, Họa, Bút làm dựa trên kết quả đó');
+  if(!(await stage(['Minh','Tìm'],false)))return;
+  const lastBy=n=>{const r=results.slice(proj.start).filter(x=>x.n===n&&x.x&&!x.rev&&!x.x.startsWith('Lỗi')).pop();return r?r.x.replace(/\s+/g,' ').trim():''};
+  const plan=lastBy('Minh').slice(0,400),res=lastBy('Tìm').slice(0,550);
+  if(plan||res)extra='\nHãy dựa vào các thông tin sau và không mâu thuẫn với chúng.'+(plan?'\nKế hoạch của quản lý: '+plan:'')+(res?'\nNghiên cứu của Tìm: '+res:'');
+  else log('Giai đoạn 1 chưa có kết quả dùng được, các agent còn lại làm độc lập');
+  await stage(['Code','Họa','Bút'],true);
 }
 async function project(){
   const g=$('#goal').value.trim();if(!g){log('Hãy gõ dự án cần làm');return}
