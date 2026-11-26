@@ -165,7 +165,7 @@ async function start(a,task){
   a.until=ok?0:T+5+Math.random()*4;
 }
 function finish(a){
-  const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+a.ai+')',t:a.last,x:res,c:a.color,n:a.name});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
+  const res=a.result;a.result='';if(res&&!res.startsWith('Lỗi')){results.push({a:a.name+' · '+a.role+' ('+aiLabel(a)+')',t:a.last,x:res,c:a.color,n:a.name});renderRes()}a.state='idle';a.task='';say(a,res?res.slice(0,120):'Xong ✓',res?9000:2500);log(a.name+(res?': '+res.slice(0,200):' hoàn thành: '+a.last));
   if(a!==mgr)send(a,mgr,()=>say(mgr,'Đã nhận từ '+a.name,2000));upd();
   if(hold&&!pending&&starts<=0&&AG.every(x=>x.state==='idle')){if(proj.active){proj.active=false;onProjectDone()}else hold=false}
 }
@@ -223,18 +223,28 @@ $('#rdl').onclick=()=>{exported=true;
 const PT={Minh:'Lập kế hoạch từng bước, có thứ tự và thời gian dự kiến, cho dự án: ',Code:'Đề xuất phần kỹ thuật cho dự án, kèm ví dụ code ngắn và giải thích từng bước. Dự án: ',Tìm:'Nghiên cứu và tổng hợp những thông tin cần biết (ý chính, ví dụ, lỗi hay gặp) cho dự án: ',Họa:'Đề xuất hướng thiết kế và hình ảnh (bảng màu, bố cục, ý tưởng) cho dự án: ',Bút:'Viết nội dung chính (kịch bản hoặc bài viết ngắn) cho dự án: '};
 let ctl=new AbortController(),runId=0;const timers=[];
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const PNAME={groq:'Groq',groq120:'Groq 120B',cf:'Llama',gemini:'Gemini',pi:'Pi',mistral:'Mistral',deepseek:'DeepSeek',openai:'OpenAI'};
+const FALL=['groq','groq120','cf','gemini'],bad={},usedBy={};
+function markBad(p,t){const m=/\((\d{3})\)/.exec(t),c=m?+m[1]:0;bad[p]=Date.now()+(c===429?120000:(c===401||c===402||c===404||/thiếu secret/.test(t))?1800000:60000)}
+function aiLabel(a){const u=usedBy[a.name];return u&&u!==PROV[a.name]?PNAME[u]+' (thay '+a.ai+')':a.ai}
+async function callOne(pv,role,task,mode){
+  try{
+    const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode}),signal:AbortSignal.any?AbortSignal.any([ctl.signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000)});
+    return (await r.json()).text||'Lỗi: không có nội dung';
+  }catch(e){return 'Lỗi: '+(e&&e.name==='TimeoutError'?'quá thời gian chờ (45 giây)':e&&e.name==='AbortError'?'đã dừng':String(e.message||e).slice(0,80))}
+}
 async function callAI(name,role,task,mode){
-  const pv=PROV[name];
-  for(let i=0;i<3;i++){
-    let t='';
-    try{
-      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role,task,mode}),signal:AbortSignal.any?AbortSignal.any([ctl.signal,AbortSignal.timeout(45000)]):AbortSignal.timeout(45000)});
-      t=(await r.json()).text||'';
-    }catch(e){return 'Lỗi: '+(e&&e.name==='TimeoutError'?'quá thời gian chờ (45 giây)':e&&e.name==='AbortError'?'đã dừng':String(e.message||e).slice(0,80))}
-    if(!t.startsWith('Lỗi')||!/429/.test(t))return t;
-    await sleep(4000);
+  const prim=PROV[name];let live=[prim,...FALL.filter(p=>p!==prim)].filter(p=>!(bad[p]>Date.now()));
+  if(!live.length)live=[prim];
+  let last='Lỗi: không gọi được AI nào';
+  for(const p of live){
+    const t=await callOne(p,role,task,mode);
+    if(!t.startsWith('Lỗi')){usedBy[name]=p;if(p!==prim)log(name+' dùng '+PNAME[p]+' thay cho '+PNAME[prim]);return t}
+    last=t;
+    if(/đã dừng/.test(t))return t;
+    markBad(p,t);log(name+': '+PNAME[p]+' lỗi, thử AI khác…');
   }
-  return 'Lỗi 429: quá nhiều yêu cầu, thử lại sau';
+  usedBy[name]=null;return last;
 }
 function parseQs(t,n){const l=t.split('\n').map(s=>s.replace(/^[-*•\d.)\s]+/,'').replace(/^\[[^\]]+\]\s*/,'').trim()).filter(s=>s.length>5&&s.length<200&&!/^không có/i.test(s)),q=l.filter(s=>s.includes('?'));return (q.length?q:l).slice(0,n)}
 const normQ=s=>s.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu,'').replace(/\s+/g,' ').trim();
@@ -473,10 +483,9 @@ function viewTxt(f,v){
     const a=AG.find(x=>x.name===sl.value),pv=PROV[a.name];
     prev=f.d;bg.disabled=true;bg.textContent='Đang chỉnh…';say(a,'Đang chỉnh '+f.n,0);
     try{
-      const r=await fetch(WORKER_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({provider:pv,role:a.role,mode:'edit',task:'Yêu cầu: '+q+'\n\nNội dung tệp '+f.n+':\n'+f.d})});
-      const d=await r.json();
-      if(d.text&&!d.text.startsWith('Lỗi')){f.d=d.text.replace(/^```[a-z]*\n?/,'').replace(/```\s*$/,'').trim();ta.value=f.d;log(a.name+' đã chỉnh '+f.n+' (bấm Hoàn tác nếu chưa ưng)')}
-      else{prev=null;log(a.name+': '+(d.text||'Lỗi'))}
+      const t=await callAI(a.name,a.role,'Yêu cầu: '+q+'\n\nNội dung tệp '+f.n+':\n'+f.d,'edit');
+      if(!t.startsWith('Lỗi')){f.d=t.replace(/^```[a-z]*\n?/,'').replace(/```\s*$/,'').trim();ta.value=f.d;log(a.name+' đã chỉnh '+f.n+' (bấm Hoàn tác nếu chưa ưng)')}
+      else{prev=null;log(a.name+': '+t)}
     }catch(e){prev=null;log('Lỗi: '+String(e.message||e).slice(0,80))}
     say(a,'',0);bg.disabled=false;bg.textContent='Nhờ AI chỉnh';
   };
