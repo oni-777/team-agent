@@ -58,7 +58,7 @@ canvas{display:block;position:absolute;inset:0;width:100%;height:100%}
 <div id="hud"><h1>Văn phòng AI</h1><p>Kéo để xoay, cuộn để phóng to, bấm vào một agent để giao việc.</p><div id="chips"></div><button class="chip" id="rbtn">Kết quả (0)</button> <button class="chip" id="fbtn">Tệp (0)</button> <button class="chip" id="stopbtn">Dừng tất cả</button> <button class="chip" id="nbtn">Sổ tay (0)</button></div>
 <div id="panel">
   <div id="card"></div>
-  <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Tự động: tắt</button></div>
+  <div id="row"><input id="in" placeholder="Giao việc, ví dụ: viết bài giới thiệu sách" maxlength="300"><button class="btn" id="go">Giao việc</button><button class="btn ghost" id="auto">Chạy lại mục tiêu</button></div>
   <div id="row2"><input id="goal" placeholder="Dự án lớn, ví dụ: video hướng dẫn mạch đèn giao thông Arduino" maxlength="300"><button class="btn" id="pgo">Chạy dự án</button></div>
   <label id="askrow"><input type="checkbox" id="askchk" checked> Nhóm hỏi làm rõ trước khi làm (khuyên dùng)</label>
   <label id="chkrow"><input type="checkbox" id="chkx" checked> Kiểm tra chéo: agent này sửa lỗi cho agent kia sau khi làm xong (khuyên dùng)</label>
@@ -180,17 +180,21 @@ function upd(){
 }
 function submit(){
   const inp=$('#in');let t=inp.value.trim(),target=sel;
-  if(!t&&target)t=target.tasks[Math.floor(Math.random()*target.tasks.length)];
+  let lb;if(!t&&target&&savedGoal){t=PT[target.name]+savedGoal;lb=savedGoal}
   if(!t){log('Hãy gõ việc cần giao');return}
   if(!target){
     const r=ROUTE.find(x=>x[0].test(t));target=r?AG[r[1]]:null;
     if(!target){const idle=workers.filter(w=>w.state==='idle');target=idle.length?idle[Math.floor(Math.random()*idle.length)]:workers[0]}
   }
-  if(assign(target,t))inp.value='';
+  if(assign(target,t,lb))inp.value='';
 }
 $('#go').onclick=submit;$('#in').addEventListener('keydown',e=>{if(e.key==='Enter')submit()});
 let autoOn=false,nextAuto=3,autoN=0;
-$('#auto').onclick=()=>{autoOn=!autoOn;autoN=0;$('#auto').textContent='Tự động: '+(autoOn?'bật':'tắt')};
+$('#auto').onclick=()=>{
+  const g=$('#goal').value.trim()||savedGoal;
+  if(!g){log('Chưa có mục tiêu chung. Gõ vào ô Dự án lớn rồi bấm Chạy dự án.');return}
+  $('#goal').value=g;project();
+};
 function renderRes(){exported=false;
   $('#rbtn').textContent='Kết quả ('+results.length+')';
   if(autoOpen){$('#res').classList.add('open');$('#fl').classList.remove('open');autoOpen=false}
@@ -286,7 +290,7 @@ function showQ(g,qs,n){
 }
 function runProject(g,ctx){
   if(AG.some(a=>a.state!=='idle')){hold=false;log('Còn agent đang bận, chờ xong rồi chạy dự án');return}
-  hold=true;starts=AG.length;autoOpen=true;lastGoal=g;proj={active:true,start:results.length,chk:$('#chkx').checked};log('Dự án: '+g);
+  hold=true;starts=AG.length;autoOpen=true;lastGoal=g;savedGoal=g;try{localStorage.setItem('vpai_goal',g)}catch(e){}proj={active:true,start:results.length,chk:$('#chkx').checked};log('Dự án: '+g);
   const full=[ctx,noteCtx(g)].filter(Boolean).join('\n');
   AG.forEach((a,i)=>timers.push(setTimeout(()=>{assign(a,PT[a.name]+g+(full?'\n'+full:''),g);starts--},i*1500)));
 }
@@ -375,11 +379,13 @@ function showNotes(){
 $('#nbtn').onclick=showNotes;
 $('#nclose').onclick=()=>$('#nbox').classList.remove('open');
 $('#nclear').onclick=()=>{notes=[];saveNotes();showNotes()};
+let savedGoal='';try{savedGoal=localStorage.getItem('vpai_goal')||''}catch(e){}
+if(savedGoal)$('#goal').value=savedGoal;
 saveNotes();
 function stopAll(){
   runId++;proj.active=false;ctl.abort();ctl=new AbortController();
   timers.splice(0).forEach(clearTimeout);
-  autoOn=false;$('#auto').textContent='Tự động: tắt';
+  autoOn=false;
   hold=false;starts=0;pending=null;$('#qbox').classList.remove('open');$('#pgo').disabled=false;
   packets.splice(0).forEach(p=>scene.remove(p.s));
   AG.forEach(a=>{if(a.state==='working')a.until=0;else if(a.state==='busy')a.state='idle'});
